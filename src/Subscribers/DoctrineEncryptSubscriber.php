@@ -2,12 +2,13 @@
 
 namespace Ambta\DoctrineEncryptBundle\Subscribers;
 
+use Doctrine\Bundle\DoctrineBundle\Attribute\AsDoctrineListener;
+use Doctrine\ORM\Event\PostLoadEventArgs;
+use Doctrine\ORM\Event\PostUpdateEventArgs;
 use Doctrine\ORM\Event\PreFlushEventArgs;
 use ReflectionClass;
 use Doctrine\ORM\Event\PostFlushEventArgs;
 use Doctrine\ORM\Events;
-use Doctrine\Common\EventSubscriber;
-use Doctrine\ORM\Event\LifecycleEventArgs;
 use Doctrine\ORM\Event\PreUpdateEventArgs;
 use Doctrine\ORM\Event\OnFlushEventArgs;
 use Doctrine\Common\Annotations\Reader;
@@ -16,10 +17,12 @@ use Ambta\DoctrineEncryptBundle\Encryptors\EncryptorInterface;
 use ReflectionProperty;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 
+
+#[AsDoctrineListener(event: Events::postUpdate|Events::preUpdate|Events::postLoad|Events::onFlush|Events::preFlush|Events::postFlush)]
 /**
  * Doctrine event subscriber which encrypt/decrypt entities
  */
-class DoctrineEncryptSubscriber implements EventSubscriber
+class DoctrineEncryptSubscriber
 {
     /**
      * Appended to end of encrypted value
@@ -87,7 +90,7 @@ class DoctrineEncryptSubscriber implements EventSubscriber
      *
      * @param EncryptorInterface|null $encryptor
      */
-    public function setEncryptor(?EncryptorInterface $encryptor = null)
+    public function setEncryptor(?EncryptorInterface $encryptor = null): void
     {
         $this->encryptor = $encryptor;
     }
@@ -105,7 +108,7 @@ class DoctrineEncryptSubscriber implements EventSubscriber
     /**
      * Restore encryptor to the one set in the constructor.
      */
-    public function restoreEncryptor()
+    public function restoreEncryptor(): void
     {
         $this->encryptor = $this->restoreEncryptor;
     }
@@ -117,11 +120,11 @@ class DoctrineEncryptSubscriber implements EventSubscriber
      * So for example after form submit the preUpdate encrypted the entity
      * We have to decrypt them before showing them again.
      *
-     * @param LifecycleEventArgs $args
+     * @param PostUpdateEventArgs $args
      */
-    public function postUpdate(LifecycleEventArgs $args)
+    public function postUpdate(PostUpdateEventArgs $args): void
     {
-        $entity = $args->getEntity();
+        $entity = $args->getObject();
         $this->processFields($entity, false);
     }
 
@@ -131,9 +134,9 @@ class DoctrineEncryptSubscriber implements EventSubscriber
      *
      * @param PreUpdateEventArgs $args
      */
-    public function preUpdate(PreUpdateEventArgs $args)
+    public function preUpdate(PreUpdateEventArgs $args): void
     {
-        $entity = $args->getEntity();
+        $entity = $args->getObject();
         $this->processFields($entity);
     }
 
@@ -141,11 +144,11 @@ class DoctrineEncryptSubscriber implements EventSubscriber
      * Listen a postLoad lifecycle event.
      * Decrypt entities property's values when loaded into the entity manger
      *
-     * @param LifecycleEventArgs $args
+     * @param PostLoadEventArgs $args
      */
-    public function postLoad(LifecycleEventArgs $args)
+    public function postLoad(PostLoadEventArgs $args): void
     {
-        $entity = $args->getEntity();
+        $entity = $args->getObject();
         $this->processFields($entity, false);
     }
 
@@ -155,9 +158,9 @@ class DoctrineEncryptSubscriber implements EventSubscriber
      *
      * @param PreFlushEventArgs $preFlushEventArgs
      */
-    public function preFlush(PreFlushEventArgs $preFlushEventArgs)
+    public function preFlush(PreFlushEventArgs $preFlushEventArgs): void
     {
-        $unitOfWOrk = $preFlushEventArgs->getEntityManager()->getUnitOfWork();
+        $unitOfWOrk = $preFlushEventArgs->getObjectManager()->getUnitOfWork();
         foreach ($unitOfWOrk->getIdentityMap() as $entityName => $entityArray) {
             if (isset($this->cachedDecryptions[$entityName])) {
                 foreach ($entityArray as $entityId => $instance) {
@@ -174,14 +177,14 @@ class DoctrineEncryptSubscriber implements EventSubscriber
      *
      * @param OnFlushEventArgs $onFlushEventArgs
      */
-    public function onFlush(OnFlushEventArgs $onFlushEventArgs)
+    public function onFlush(OnFlushEventArgs $onFlushEventArgs): void
     {
-        $unitOfWork = $onFlushEventArgs->getEntityManager()->getUnitOfWork();
+        $unitOfWork = $onFlushEventArgs->getObjectManager()->getUnitOfWork();
         foreach ($unitOfWork->getScheduledEntityInsertions() as $entity) {
             $encryptCounterBefore = $this->encryptCounter;
             $this->processFields($entity);
             if ($this->encryptCounter > $encryptCounterBefore ) {
-                $classMetadata = $onFlushEventArgs->getEntityManager()->getClassMetadata(get_class($entity));
+                $classMetadata = $onFlushEventArgs->getObjectManager()->getClassMetadata(get_class($entity));
                 $unitOfWork->recomputeSingleEntityChangeSet($classMetadata, $entity);
             }
         }
@@ -193,31 +196,14 @@ class DoctrineEncryptSubscriber implements EventSubscriber
      *
      * @param PostFlushEventArgs $postFlushEventArgs
      */
-    public function postFlush(PostFlushEventArgs $postFlushEventArgs)
+    public function postFlush(PostFlushEventArgs $postFlushEventArgs): void
     {
-        $unitOfWork = $postFlushEventArgs->getEntityManager()->getUnitOfWork();
+        $unitOfWork = $postFlushEventArgs->getObjectManager()->getUnitOfWork();
         foreach ($unitOfWork->getIdentityMap() as $entityMap) {
             foreach ($entityMap as $entity) {
                 $this->processFields($entity, false);
             }
         }
-    }
-
-    /**
-     * Realization of EventSubscriber interface method.
-     *
-     * @return array Return all events which this subscriber is listening
-     */
-    public function getSubscribedEvents(): array
-    {
-        return array(
-            Events::postUpdate,
-            Events::preUpdate,
-            Events::postLoad,
-            Events::onFlush,
-            Events::preFlush,
-            Events::postFlush,
-        );
     }
 
     /**
@@ -283,7 +269,7 @@ class DoctrineEncryptSubscriber implements EventSubscriber
         return $entity;
     }
 
-    private function handleEmbeddedAnnotation($entity, ReflectionProperty $embeddedProperty, bool $isEncryptOperation = true)
+    private function handleEmbeddedAnnotation($entity, ReflectionProperty $embeddedProperty, bool $isEncryptOperation = true): void
     {
         $propName = $embeddedProperty->getName();
 
