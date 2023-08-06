@@ -1,5 +1,5 @@
 {
-  "name": "absolute-quantum/doctrine-encrypt-bundle",
+  "name": "phpremco/doctrine-encrypt-bundle",
   "type": "library",
   "keywords": [
     "doctrine",
