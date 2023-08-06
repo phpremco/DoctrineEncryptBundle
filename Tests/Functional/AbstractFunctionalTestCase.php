@@ -15,7 +15,6 @@ use Doctrine\ORM\Tools\Setup;
 use PHPUnit\Framework\Constraint\LogicalNot;
 use PHPUnit\Framework\Constraint\StringContains;
 use PHPUnit\Framework\TestCase;
-use PHPUnit\Util\InvalidArgumentHelper;
 
 abstract class AbstractFunctionalTestCase extends TestCase
 {
@@ -67,8 +66,8 @@ abstract class AbstractFunctionalTestCase extends TestCase
         $this->entityManager->getConnection()->getConfiguration()->setSQLLogger($this->sqlLoggerStack);
 
         $this->encryptor = $this->getEncryptor();
-        $this->subscriber = new DoctrineEncryptSubscriber(new AnnotationReader(),$this->encryptor);
-        $this->entityManager->getEventManager()->addEventSubscriber($this->subscriber);
+//        $this->subscriber = new DoctrineEncryptSubscriber(new AnnotationReader(),$this->encryptor);
+//        $this->entityManager->getEventManager()->addEventSubscriber($this->subscriber);
 
         error_reporting(E_ALL);
     }
